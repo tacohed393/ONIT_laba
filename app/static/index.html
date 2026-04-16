@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Библиотека</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-4 md:p-10">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-extrabold mb-8 text-slate-800 border-b pb-4">📚 Личная Библиотека</h1>
+        
+        <!-- Форма ввода -->
+        <div class="bg-slate-50 p-4 rounded-lg border mb-8 grid grid-cols-1 gap-4">
+            <h2 id="formTitle" class="font-semibold text-slate-600 italic">Добавить новую книгу:</h2>
+            <input id="title" type="text" placeholder="Название книги" class="border p-2 rounded focus:ring-2 focus:ring-indigo-400 outline-none">
+            <input id="author" type="text" placeholder="Автор" class="border p-2 rounded focus:ring-2 focus:ring-indigo-400 outline-none">
+            <input id="year" type="number" placeholder="Год издания" class="border p-2 rounded focus:ring-2 focus:ring-indigo-400 outline-none">
+            
+            <div class="flex gap-2">
+                <button id="mainBtn" onclick="handleSave()" class="flex-1 bg-indigo-600 text-white font-bold p-3 rounded hover:bg-indigo-700 transition">
+                    Добавить в каталог
+                </button>
+                <button id="cancelBtn" onclick="resetForm()" class="hidden bg-gray-400 text-white p-3 rounded hover:bg-gray-500 transition">
+                    Отмена
+                </button>
+            </div>
+        </div>
+
+        <!-- Список книг -->
+        <h2 class="text-xl font-bold mb-4 text-slate-700">Список книг:</h2>
+        <div id="bookList" class="space-y-3">
+            <!-- Сюда JS вставит книги -->
+        </div>
+    </div>
+
+    <script>
+        let editModeId = null; // ID книги, которую редактируем (null если создаем новую)
+
+        // 1. ЗАГРУЗКА КНИГ
+        async function loadBooks() {
+            const res = await fetch('/books/');
+            const books = await res.json();
+            const container = document.getElementById('bookList');
+            container.innerHTML = '';
+
+            if (books.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">Книг пока нет...</p>';
+                return;
+            }
+
+            books.forEach(book => {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center p-4 bg-white border rounded-lg shadow-sm hover:border-indigo-300 transition">
+                        <div>
+                            <div class="font-bold text-slate-800 text-lg">${book.title}</div>
+                            <div class="text-slate-500">${book.author} • ${book.year} г.</div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="prepareEdit(${book.id}, '${book.title}', '${book.author}', ${book.year})" 
+                                    class="text-indigo-600 hover:text-indigo-800 font-medium">Ред.</button>
+                            <button onclick="deleteBook(${book.id})" 
+                                    class="text-red-500 hover:text-red-700 font-bold text-xl">✕</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // 2. ПОДГОТОВКА К РЕДАКТИРОВАНИЮ
+        function prepareEdit(id, title, author, year) {
+            editModeId = id;
+            document.getElementById('title').value = title;
+            document.getElementById('author').value = author;
+            document.getElementById('year').value = year;
+
+            document.getElementById('formTitle').innerText = "Редактирование книги:";
+            document.getElementById('mainBtn').innerText = "Сохранить изменения";
+            document.getElementById('mainBtn').className = "flex-1 bg-green-600 text-white font-bold p-3 rounded hover:bg-green-700 transition";
+            document.getElementById('cancelBtn').classList.remove('hidden');
+        }
+
+        // 3. СОХРАНЕНИЕ (Универсальная функция для POST и PUT)
+        async function handleSave() {
+            const titleInput = document.getElementById('title');
+            const authorInput = document.getElementById('author');
+            const yearInput = document.getElementById('year');
+
+            const data = {
+                title: titleInput.value.trim(),
+                author: authorInput.value.trim(),
+                year: parseInt(yearInput.value)
+            };
+
+            if (!data.title || !data.author || isNaN(data.year)) {
+                alert("Пожалуйста, заполните все поля корректно");
+                return;
+            }
+
+            let response;
+            if (editModeId) {
+                // Обновление существующей
+                response = await fetch(`/books/${editModeId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            } else {
+                // Создание новой
+                response = await fetch('/books/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            }
+
+            if (response.ok) {
+                resetForm();
+                loadBooks();
+            } else {
+                alert("Ошибка при сохранении");
+            }
+        }
+
+        // 4. УДАЛЕНИЕ
+        async function deleteBook(id) {
+            if(confirm('Удалить эту книгу из каталога?')) {
+                const response = await fetch(`/books/${id}`, { method: 'DELETE' });
+                if (response.ok) loadBooks();
+            }
+        }
+
+        // 5. СБРОС ФОРМЫ
+        function resetForm() {
+            editModeId = null;
+            document.getElementById('title').value = '';
+            document.getElementById('author').value = '';
+            document.getElementById('year').value = '';
+            document.getElementById('formTitle').innerText = "Добавить новую книгу:";
+            document.getElementById('mainBtn').innerText = "Добавить в каталог";
+            document.getElementById('mainBtn').className = "flex-1 bg-indigo-600 text-white font-bold p-3 rounded hover:bg-indigo-700 transition";
+            document.getElementById('cancelBtn').classList.add('hidden');
+        }
+
+        loadBooks();
+    </script>
+</body>
+</html>
