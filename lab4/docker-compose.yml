@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Первая нода
+  node1:
+    build: ./node_app
+    environment:
+      - NODE_NAME=Нода 1
+
+  # Вторая нода
+  node2:
+    build: ./node_app
+    environment:
+      - NODE_NAME=Нода 2
+
+  # Третья нода
+  node3:
+    build: ./node_app
+    environment:
+      - NODE_NAME=Нода 3
+
+  # Балансировщик
+  balancer:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "9000:80" 
+    depends_on:
+      - node1
+      - node2
+      - node3
